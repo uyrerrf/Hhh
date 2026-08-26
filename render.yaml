@@ -1,15 +1,13 @@
 services:
   - type: web
     name: wuzen-c2
-    env: node
-    plan: standard
+    runtime: node
+    plan: free
     buildCommand: cd server && npm install
     startCommand: cd server && npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
       - key: JWT_SECRET
         generateValue: true
-    healthCheckPath: /api/auth/login
