@@ -5,7 +5,25 @@ on:
     branches: [main]
 
 jobs:
+  # 1. Runs FIRST - APK build must pass before anything else starts
+  build-payload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - uses: android-actions/setup-android@v3
+      - run: cd payload && ./gradlew assembleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: payload-apk
+          path: payload/app/build/outputs/apk/release/*.apk
+
+  # 2. Runs ONLY after build-payload completes successfully
   build-server:
+    needs: build-payload
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,7 +33,9 @@ jobs:
       - run: cd server && npm ci
       - run: cd server && npm test || true
 
+  # 3. Runs ONLY after build-payload completes successfully
   build-client:
+    needs: build-payload
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,22 +49,7 @@ jobs:
           name: client-dist
           path: client/dist
 
-  build-payload:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-      - uses: android-actions/setup-android@v3
-      - run: cd payload && ./gradlew assembleRelease || echo "needs gradlew"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: payload-apk
-          path: payload/app/build/outputs/apk/release/*.apk
-        continue-on-error: true
-
+  # 4. Runs ONLY after both build-server AND build-client succeed
   deploy-render:
     needs: [build-server, build-client]
     runs-on: ubuntu-latest
@@ -54,5 +59,7 @@ jobs:
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
         run: |
-          curl -X POST https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys             -H "Authorization: Bearer $RENDER_API_KEY"             -H "Content-Type: application/json"             -d '{"clearCache": true}'
-        continue-on-error: true
+          curl -X POST https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache": true}'
