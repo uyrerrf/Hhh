@@ -15,7 +15,11 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
       - uses: android-actions/setup-android@v3
-      - run: cd payload && ./gradlew assembleRelease
+      - name: Make gradlew executable and build APK
+        run: |
+          cd payload
+          chmod +x gradlew
+          ./gradlew assembleRelease
       - uses: actions/upload-artifact@v4
         with:
           name: payload-apk
